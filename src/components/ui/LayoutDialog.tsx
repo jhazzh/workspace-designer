@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useWorkspace } from '@/store/useWorkspace';
 import { buildPrompt, downloadLayout, parseLayout, type LayoutFile } from '@/lib/scene/layout';
+import { downloadBlob } from '@/lib/download';
 
 /**
  * One dialog for the whole round-trip: copy the prompt out, paste the AI's
@@ -21,12 +22,14 @@ export function LayoutDialog() {
 function Dialog({ exported }: { exported: LayoutFile }) {
   const setExported = useWorkspace((s) => s.setExported);
   const applyImport = useWorkspace((s) => s.applyImport);
+  const glbExporter = useWorkspace((s) => s.glbExporter);
   const say = useWorkspace((s) => s.say);
 
   const [request, setRequest] = useState('');
   const [incoming, setIncoming] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [glb, setGlb] = useState<'idle' | 'working' | 'failed'>('idle');
   const closeRef = useRef<HTMLButtonElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -55,6 +58,24 @@ function Dialog({ exported }: { exported: LayoutFile }) {
     } catch {
       // clipboard needs a secure context; the textarea is selectable as a fallback
       say('Copy failed — select the text and copy manually.');
+    }
+  };
+
+  /**
+   * The room as a .glb, for Blender or any other 3D tool. Building it walks the
+   * whole scene, so it reports progress on the button rather than through the
+   * toast, which this dialog covers.
+   */
+  const downloadGlb = async () => {
+    if (!glbExporter) return;
+    setGlb('working');
+    try {
+      downloadBlob(await glbExporter(), 'workspace-room.glb');
+      setGlb('idle');
+      say('Room downloaded as .glb');
+    } catch (err) {
+      console.error('[export] glb failed:', err);
+      setGlb('failed');
     }
   };
 
@@ -147,12 +168,27 @@ function Dialog({ exported }: { exported: LayoutFile }) {
               >
                 Download .json
               </button>
+              <button
+                onClick={downloadGlb}
+                disabled={empty || !glbExporter || glb === 'working'}
+                aria-describedby={empty ? 'export-empty-hint' : undefined}
+                title="The room and its furniture, for Blender or any 3D tool"
+                className="rounded-xl px-3 py-2 text-[13px] font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 disabled:cursor-not-allowed disabled:text-stone-300 disabled:hover:bg-transparent"
+              >
+                {glb === 'working' ? 'Building .glb…' : 'Download .glb'}
+              </button>
               {empty && (
                 <p id="export-empty-hint" className="text-[12px] text-stone-500">
                   Add an item to your room first.
                 </p>
               )}
             </div>
+
+            {glb === 'failed' && (
+              <p className="mt-1.5 text-[12px] text-red-600">
+                Could not build the .glb. Your layout is fine — try the .json export.
+              </p>
+            )}
           </section>
 
           <section className="border-t border-stone-200 pt-4">

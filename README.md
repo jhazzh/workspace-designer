@@ -28,6 +28,12 @@ reports skipped items rather than dropping them silently.
 The room ships as an open corner or four walls, and you can upload your own `.glb`/`.gltf`
 in place of it.
 
+The same dialog exports the whole room as a binary `.glb` for Blender or any other 3D tool.
+Only the room shell and the placed furniture go in — the transform gizmo, contact shadows
+and selection rings are viewer scaffolding, and a customer's file shouldn't contain objects
+they never placed. Nodes are named after the catalog, so the Blender outliner reads
+"Oak Writing Desk" rather than a uid.
+
 ## Models
 
 Furniture lives in [`src/data/catalog.ts`](src/data/catalog.ts). Each item can point at a

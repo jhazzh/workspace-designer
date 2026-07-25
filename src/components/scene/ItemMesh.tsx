@@ -7,6 +7,7 @@ import { Clone, useGLTF } from '@react-three/drei';
 import type { Item } from '@/data/catalog';
 import { Placeholder } from './Placeholder';
 import { seatOnFloor } from '@/lib/scene/collision';
+import { HELPER } from '@/lib/scene/glb';
 
 /**
  * Real model when one exists. Suspends while loading, so callers wrap this in
@@ -120,7 +121,7 @@ export function ItemMesh({ item, uid, selected, onSelect, register, placed }: Pr
 function SelectionRing({ item, strong }: { item: Item; strong: boolean }) {
   const r = Math.max(item.size[0], item.size[2]) * 0.62;
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]}>
+    <mesh name={HELPER} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]}>
       <ringGeometry args={[r, r + 0.045, 48]} />
       <meshBasicMaterial
         color={strong ? '#2f6df6' : '#8aa6e8'}

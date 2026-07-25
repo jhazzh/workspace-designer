@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { Clone, Grid, useGLTF } from '@react-three/drei';
 import { useWorkspace, type RoomMode } from '@/store/useWorkspace';
 import { ROOM_SIZE as SIZE, WALL_HEIGHT as WALL_H } from '@/lib/scene/room';
+import { HELPER } from '@/lib/scene/glb';
 
 /**
  * Floor plus optional corner walls. Walls are primitives today; a wall GLB can
@@ -112,6 +113,7 @@ function BuiltInRoom({ mode }: { mode: RoomMode }) {
 
       {!walls && (
         <Grid
+          name={HELPER}
           args={[SIZE, SIZE]}
           cellSize={0.25}
           cellColor="#9a948a"

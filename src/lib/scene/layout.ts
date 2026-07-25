@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { byId, CATALOG } from '@/data/catalog';
+import { downloadBlob } from '@/lib/download';
 import { ROOM_SIZE } from './room';
 // type-only: keeps the store <-> layout import cycle erased at compile time
 import type { Placed, RoomMode } from '@/store/useWorkspace';
@@ -269,10 +270,5 @@ ${JSON.stringify(data)}`;
 /** Trigger a browser download of `data` as a .json file. */
 export function downloadLayout(data: LayoutFile, filename = 'workspace-layout.json') {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, filename);
 }

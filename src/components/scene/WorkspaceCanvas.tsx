@@ -11,6 +11,7 @@ import { resolveCollisions, settleOnSurface, staticBoxes, worldBox } from '@/lib
 import { clampToRoom, wallBoxes } from '@/lib/scene/room';
 import { autoArrange, type Placeable } from '@/lib/scene/arrange';
 import { toLayout } from '@/lib/scene/layout';
+import { sceneToGlb } from '@/lib/scene/glb';
 import { Room } from './Room';
 import { ItemMesh } from './ItemMesh';
 import { SceneProbe } from './SceneProbe';
@@ -90,6 +91,7 @@ function Scene() {
   const pendingLayout = useWorkspace((s) => s.pendingLayout);
   const consumeLayout = useWorkspace((s) => s.consumeLayout);
   const setExported = useWorkspace((s) => s.setExported);
+  const setGlbExporter = useWorkspace((s) => s.setGlbExporter);
   const select = useWorkspace((s) => s.select);
   const push = useWorkspace((s) => s.push);
 
@@ -99,6 +101,8 @@ function Scene() {
    */
   const objects = useRef(new Map<string, THREE.Object3D>());
   const orbit = useRef<OrbitImpl>(null);
+  /** The floor and walls, so a GLB export can include the shell around the furniture. */
+  const room = useRef<THREE.Group>(null);
   const dragBefore = useRef<Snapshot | null>(null);
   /** walls block movement during the drag; items are only settled onto at release. */
   const wallsFrozen = useRef<THREE.Box3[]>([]);
@@ -190,6 +194,22 @@ function Scene() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exportToken]);
 
+  /**
+   * Hand the store a way to serialise the scene. It's a callback rather than a
+   * token-and-result pair like the JSON export above, because a GLB is built
+   * asynchronously and the caller needs to await it and catch its failures.
+   */
+  useEffect(() => {
+    setGlbExporter(() => {
+      const names = new Map<string, string>();
+      for (const p of useWorkspace.getState().placed) {
+        names.set(p.uid, byId(p.itemId)?.name ?? p.itemId);
+      }
+      return sceneToGlb(room.current, objects.current, names);
+    });
+    return () => setGlbExporter(null);
+  }, [setGlbExporter]);
+
   // "Tidy up" from the toolbar: a full reset, so it also unpins.
   useEffect(() => {
     if (!arrangeToken) return;
@@ -228,7 +248,9 @@ function Scene() {
       <directionalLight position={[-4, 3, -2]} intensity={0.45} color="#dce6ff" />
       <directionalLight position={[0, 2, 5]} intensity={0.35} color="#fff3e0" />
 
-      <Room mode={roomMode} />
+      <group ref={room} name="Room">
+        <Room mode={roomMode} />
+      </group>
 
       <ContactShadows
         position={[0, 0.004, 0]}

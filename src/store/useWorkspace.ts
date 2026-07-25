@@ -45,6 +45,12 @@ type State = {
    * doesn't survive a reload.
    */
   roomModel: { url: string; name: string } | null;
+  /**
+   * Serialises the live scene to a GLB. Registered by the canvas, because
+   * geometry lives on three.js objects the store never sees. Null until the
+   * canvas mounts — it's dynamically imported, so that's a real window.
+   */
+  glbExporter: (() => Promise<Blob>) | null;
   toast: string | null;
 
   select: (uid: string | null) => void;
@@ -59,6 +65,7 @@ type State = {
   setRoomMode: (r: RoomMode) => void;
   /** Swap in an imported room shell, or pass null to restore the built-in one. */
   setRoomModel: (m: { url: string; name: string } | null) => void;
+  setGlbExporter: (fn: (() => Promise<Blob>) | null) => void;
   setMode: (m: TransformMode) => void;
   setSnap: (b: boolean) => void;
   setCollide: (b: boolean) => void;
@@ -90,6 +97,7 @@ export const useWorkspace = create<State>((set, get) => ({
   exported: null,
   pendingLayout: null,
   roomModel: null,
+  glbExporter: null,
   toast: null,
 
   select: (uid) => set({ selected: uid }),
@@ -196,6 +204,7 @@ export const useWorkspace = create<State>((set, get) => ({
     if (old && old.url !== roomModel?.url) URL.revokeObjectURL(old.url);
     set({ roomModel });
   },
+  setGlbExporter: (glbExporter) => set({ glbExporter }),
   setMode: (mode) => set({ mode }),
   setSnap: (snap) => set({ snap }),
   setCollide: (collide) => set({ collide }),
