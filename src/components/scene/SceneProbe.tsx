@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import * as THREE from 'three';
 import { resolveCollisions, settleOnSurface, staticBoxes, worldBox } from '@/lib/scene/collision';
-import { wallBoxes } from '@/lib/scene/room';
+import { clampToRoom, wallBoxes } from '@/lib/scene/room';
 
 export type ProbeResult = { id: string; minY: number; maxY: number };
 export type TransformResult = {
@@ -108,6 +108,9 @@ export function SceneProbe({
         ...staticBoxes([...objects.values()].filter((v) => v !== o), o),
         ...wallBoxes(),
       ];
+      // Mirror the drag path: clampToRoom is what guarantees containment.
+      // resolveCollisions only nudges, so it can't recover from a teleport.
+      clampToRoom(o);
       resolveCollisions(o, obstacles, 8);
       const b = worldBox(o);
       // inside the 8×8 room (half = 4), allowing a hair of tolerance

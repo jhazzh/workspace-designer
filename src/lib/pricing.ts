@@ -90,4 +90,4 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export const toCents = (n: number) => Math.round(n * 100);
 
 export const money = (n: number) =>
-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 });
+  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
