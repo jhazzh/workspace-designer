@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { addItem, ready } from './helpers';
+import { addItem, openSummary, ready } from './helpers';
 
 test.describe('pricing & checkout', () => {
   test('deposit matches monthly and discount tiers apply', async ({ page }) => {
@@ -7,16 +7,17 @@ test.describe('pricing & checkout', () => {
     await addItem(page, /Desk/, /Oak Writing Desk/); // $42
     await addItem(page, /Chair/, /Ergonomic Mesh Chair/); // $38  => $80/mo
 
+    await openSummary(page);
     const dueToday = page.getByText('Due today').locator('..').locator('dd');
 
     // 1 month: no discount. 80 rent + 80 deposit
     await page.locator('#months').fill('1');
-    await expect(dueToday).toHaveText('$160');
+    await expect(dueToday).toHaveText('$160.00');
 
     // 12 months: 20% off => 64/mo, deposit 64, due 128
     await page.locator('#months').fill('12');
     await expect(page.getByText(/20% long-stay discount/)).toBeVisible();
-    await expect(dueToday).toHaveText('$128');
+    await expect(dueToday).toHaveText('$128.00');
   });
 
   test('checkout is reached and never trusts client prices', async ({ page }) => {

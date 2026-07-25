@@ -1,23 +1,28 @@
 import { test, expect } from '@playwright/test';
-import { addItem, catalog, ready, summary } from './helpers';
+import { addItem, catalog, openSummary, ready, summary } from './helpers';
 
 test.describe('catalog', () => {
   test('starts empty and prompts for a desk', async ({ page }) => {
     await ready(page);
     await expect(page.getByText('Your room is empty')).toBeVisible();
+    // checkout lives in the summary panel, collapsed on mobile
+    await openSummary(page);
     await expect(page.getByRole('button', { name: 'Add items to rent' })).toBeDisabled();
   });
 
-  test('picking a desk swaps rather than stacks', async ({ page }) => {
+  test('desks accumulate rather than swapping', async ({ page }) => {
     await ready(page);
     const s = summary(page);
 
+    // desks are a multi slot: a second one joins the first. Both adds happen
+    // before opening the summary, since the mobile accordion shows one panel.
     await addItem(page, /Desk/, /Oak Writing Desk/);
-    await expect(s.getByText('Oak Writing Desk')).toBeVisible();
-
     await addItem(page, /Desk/, /Compact Studio Desk/);
+
+    await openSummary(page);
     await expect(s.getByText('Compact Studio Desk')).toBeVisible();
-    await expect(s.getByText('Oak Writing Desk')).toHaveCount(0);
+    await expect(s.getByText('Oak Writing Desk')).toBeVisible();
+    await expect(s.locator('li')).toHaveCount(2);
   });
 
   test('accessories accumulate and toggle off', async ({ page }) => {
@@ -26,11 +31,18 @@ test.describe('catalog', () => {
 
     await addItem(page, /Monitors/, /27" 4K Monitor/);
     await addItem(page, /Monitors/, /34" Ultrawide/);
+
+    // toHaveCount matches hidden rows, so the panel need not be open for these
     await expect(s.locator('li')).toHaveCount(2);
 
-    // clicking the same catalog card again removes it
-    await catalog(page).getByRole('button', { name: /27" 4K Monitor/ }).click();
+    // the card's − step removes one; exact name avoids the "Add one" sibling
+    await catalog(page)
+      .getByRole('button', { name: 'Remove one 27" 4K Monitor', exact: true })
+      .click();
     await expect(s.locator('li')).toHaveCount(1);
+
+    // only this last check needs the summary actually on screen
+    await openSummary(page);
     await expect(s.getByText('34" Ultrawide')).toBeVisible();
   });
 
