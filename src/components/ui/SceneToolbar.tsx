@@ -141,8 +141,7 @@ export function SceneToolbar() {
       <Divider />
 
       <Plain onClick={requestExport} title="Export or import a layout as JSON">
-        <span className="lg:hidden">Export</span>
-        <span className="hidden lg:inline">Export, Import, or Edit with AI</span>
+        Export, Import, or Edit with AI
       </Plain>
     </div>
   );

@@ -67,10 +67,12 @@ export function Designer() {
           hint={`${placed.length} placed`}
         />
 
+        {/* Collapsed content is removed outright, not just clipped: max-h-0
+            leaves it focusable and hit-testable. Desktop is never collapsed. */}
         <div
           id="catalog-body"
-          className={`min-h-0 lg:max-h-none lg:flex-1 ${
-            panel === 'catalog' ? 'max-h-[45dvh] flex-1' : 'max-h-0 overflow-hidden lg:max-h-none'
+          className={`min-h-0 flex-1 lg:block lg:max-h-none ${
+            panel === 'catalog' ? 'max-h-[45dvh]' : 'hidden'
           }`}
         >
           <SlotPicker />
@@ -139,8 +141,8 @@ export function Designer() {
 
         <div
           id="summary-body"
-          className={`min-h-0 lg:max-h-none lg:flex-1 ${
-            panel === 'summary' ? 'max-h-[45dvh] flex-1' : 'max-h-0 overflow-hidden lg:max-h-none'
+          className={`min-h-0 flex-1 lg:block lg:max-h-none ${
+            panel === 'summary' ? 'max-h-[45dvh]' : 'hidden'
           }`}
         >
           <SummaryPanel />
