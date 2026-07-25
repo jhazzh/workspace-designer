@@ -1,9 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { byId } from '@/data/catalog';
-import { useWorkspace } from '@/store/useWorkspace';
+import { useWorkspace, selectedIds } from '@/store/useWorkspace';
+import { quote, money } from '@/lib/pricing';
 import { SlotPicker } from './SlotPicker';
 import { SummaryPanel } from './SummaryPanel';
 import { SceneToolbar } from './SceneToolbar';
@@ -24,6 +25,13 @@ export function Designer() {
   const selected = useWorkspace((s) => s.selected);
   const toast = useWorkspace((s) => s.toast);
   const say = useWorkspace((s) => s.say);
+  const months = useWorkspace((s) => s.months);
+
+  // mobile only: both collapsed so the canvas owns the screen. lg ignores these.
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+
+  const monthly = quote(selectedIds(placed), months).monthly;
 
   useKeyboardShortcuts();
 
@@ -42,7 +50,7 @@ export function Designer() {
       {/* catalog */}
       <aside
         aria-label="Catalog"
-        className="order-2 flex min-h-0 shrink-0 flex-col border-stone-200 bg-white lg:order-1 lg:h-full lg:w-[300px] lg:border-r"
+        className="order-2 flex min-h-0 shrink-0 flex-col border-t border-stone-200 bg-white lg:order-1 lg:h-full lg:w-[300px] lg:border-r lg:border-t-0"
       >
         <header className="hidden px-4 pb-2 pt-4 lg:block">
           <h1 className="text-[15px] font-semibold">Workspace Designer</h1>
@@ -50,7 +58,21 @@ export function Designer() {
             Build your setup, then rent it.
           </p>
         </header>
-        <div className="min-h-0 flex-1">
+
+        <PanelToggle
+          open={catalogOpen}
+          onClick={() => setCatalogOpen((v) => !v)}
+          controls="catalog-body"
+          label="Catalog"
+          hint={`${placed.length} placed`}
+        />
+
+        <div
+          id="catalog-body"
+          className={`min-h-0 lg:flex-1 lg:max-h-none ${
+            catalogOpen ? 'max-h-[45dvh] flex-1' : 'max-h-0 overflow-hidden lg:max-h-none'
+          }`}
+        >
           <SlotPicker />
         </div>
       </aside>
@@ -59,7 +81,7 @@ export function Designer() {
       <section className="relative order-1 min-h-0 flex-1 lg:order-2">
         <WorkspaceCanvas />
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-3">
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex max-w-full justify-center p-3">
           <SceneToolbar />
         </div>
 
@@ -104,11 +126,58 @@ export function Designer() {
       {/* summary */}
       <aside
         aria-label="Your setup"
-        className="order-3 flex max-h-[45dvh] min-h-0 shrink-0 flex-col border-t border-stone-200 bg-white lg:h-full lg:max-h-none lg:w-[320px] lg:border-l lg:border-t-0"
+        className="order-3 flex min-h-0 shrink-0 flex-col border-t border-stone-200 bg-white lg:h-full lg:w-[320px] lg:border-l lg:border-t-0"
       >
-        <SummaryPanel />
+        <PanelToggle
+          open={summaryOpen}
+          onClick={() => setSummaryOpen((v) => !v)}
+          controls="summary-body"
+          label="Your setup"
+          hint={placed.length ? `${money(monthly)}/mo` : 'Empty'}
+        />
+
+        <div
+          id="summary-body"
+          className={`min-h-0 lg:flex-1 lg:max-h-none ${
+            summaryOpen ? 'max-h-[45dvh] flex-1' : 'max-h-0 overflow-hidden lg:max-h-none'
+          }`}
+        >
+          <SummaryPanel />
+        </div>
       </aside>
     </main>
+  );
+}
+
+/** Mobile-only header that expands its panel. Hidden from lg up, where both panels are always open. */
+function PanelToggle({
+  open,
+  onClick,
+  controls,
+  label,
+  hint,
+}: {
+  open: boolean;
+  onClick: () => void;
+  controls: string;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-expanded={open}
+      aria-controls={controls}
+      className="flex shrink-0 items-center justify-between px-4 py-3 text-left lg:hidden"
+    >
+      <span className="text-[13px] font-semibold">{label}</span>
+      <span className="flex items-center gap-2 text-[13px] text-stone-500">
+        {hint}
+        <span aria-hidden className={`transition-transform ${open ? '' : 'rotate-180'}`}>
+          ⌃
+        </span>
+      </span>
+    </button>
   );
 }
 

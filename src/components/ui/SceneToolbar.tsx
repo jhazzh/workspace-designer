@@ -54,9 +54,10 @@ export function SceneToolbar() {
   const redo = useWorkspace((s) => s.redo);
   const clear = useWorkspace((s) => s.clear);
 
+  // narrow screens scroll the row sideways; wrapping stacked it over the canvas
   return (
-    <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 rounded-2xl border border-black/5 bg-white/85 p-1.5 shadow-lg backdrop-blur">
-      <div className="flex rounded-xl bg-stone-100 p-0.5">
+    <div className="pointer-events-auto flex max-w-full items-center gap-1.5 overflow-x-auto rounded-2xl border border-black/5 bg-white/85 p-1.5 shadow-lg backdrop-blur [scrollbar-width:none] lg:flex-wrap lg:overflow-x-visible">
+      <div className="flex shrink-0 rounded-xl bg-stone-100 p-0.5">
         {MODES.map((m) => (
           <button
             key={m.mode}
@@ -123,12 +124,15 @@ export function SceneToolbar() {
         Tidy up
       </Plain>
 
-      <Plain onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
-        ↺
-      </Plain>
-      <Plain onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Y)" aria-label="Redo">
-        ↻
-      </Plain>
+      {/* kept together so wrapping can't split undo from redo */}
+      <div className="flex items-center gap-0.5">
+        <Plain onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
+          ↺
+        </Plain>
+        <Plain onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Y)" aria-label="Redo">
+          ↻
+        </Plain>
+      </div>
 
       <Plain onClick={clear} disabled={itemCount === 0} title="Remove everything">
         Clear
@@ -137,13 +141,14 @@ export function SceneToolbar() {
       <Divider />
 
       <Plain onClick={requestExport} title="Export or import a layout as JSON">
-        Export, Import, or Edit with AI
+        <span className="lg:hidden">Export</span>
+        <span className="hidden lg:inline">Export, Import, or Edit with AI</span>
       </Plain>
     </div>
   );
 }
 
-const Divider = () => <span className="mx-0.5 h-5 w-px bg-stone-200" aria-hidden />;
+const Divider = () => <span className="mx-0.5 h-5 w-px shrink-0 bg-stone-200" aria-hidden />;
 
 function Toggle({
   on,
@@ -156,7 +161,7 @@ function Toggle({
       {...rest}
       disabled={Boolean(disabled)}
       aria-pressed={on}
-      className={`rounded-xl px-2.5 py-1.5 text-[13px] font-medium transition disabled:cursor-not-allowed disabled:bg-transparent disabled:text-stone-300 ${
+      className={`shrink-0 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-[13px] font-medium transition disabled:cursor-not-allowed disabled:bg-transparent disabled:text-stone-300 ${
         on
           ? 'bg-stone-900 text-white'
           : 'text-stone-500 hover:bg-stone-100 hover:text-stone-800'
@@ -174,7 +179,7 @@ function Plain({ disabled, ...rest }: React.ButtonHTMLAttributes<HTMLButtonEleme
       // always a real boolean: an undefined `disabled` serialises differently
       // on server and client, which trips React's hydration check
       disabled={Boolean(disabled)}
-      className="rounded-xl px-2.5 py-1.5 text-[13px] font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 disabled:cursor-not-allowed disabled:text-stone-300 disabled:hover:bg-transparent"
+      className="shrink-0 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-[13px] font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 disabled:cursor-not-allowed disabled:text-stone-300 disabled:hover:bg-transparent"
     />
   );
 }
