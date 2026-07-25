@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useWorkspace } from '@/store/useWorkspace';
-import { buildPrompt, downloadLayout, parseLayout } from '@/lib/scene/layout';
+import { buildPrompt, downloadLayout, parseLayout, type LayoutFile } from '@/lib/scene/layout';
 
 /**
  * One dialog for the whole round-trip: copy the prompt out, paste the AI's
@@ -11,6 +11,14 @@ import { buildPrompt, downloadLayout, parseLayout } from '@/lib/scene/layout';
  */
 export function LayoutDialog() {
   const exported = useWorkspace((s) => s.exported);
+  const exportToken = useWorkspace((s) => s.exportToken);
+  if (!exported) return null;
+  // exportToken is bumped on every open, so keying on it remounts the body:
+  // the paste box starts empty without an effect syncing it.
+  return <Dialog key={exportToken} exported={exported} />;
+}
+
+function Dialog({ exported }: { exported: LayoutFile }) {
   const setExported = useWorkspace((s) => s.setExported);
   const applyImport = useWorkspace((s) => s.applyImport);
   const say = useWorkspace((s) => s.say);
@@ -23,31 +31,19 @@ export function LayoutDialog() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!exported) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setExported(null);
     };
     window.addEventListener('keydown', onKey);
     closeRef.current?.focus();
     return () => window.removeEventListener('keydown', onKey);
-  }, [exported, setExported]);
-
-  // Reset the paste box each time the dialog opens, so a previous failed
-  // attempt isn't sitting there when you come back.
-  useEffect(() => {
-    if (exported) {
-      setIncoming('');
-      setError(null);
-    }
-  }, [exported]);
+  }, [setExported]);
 
   useEffect(() => {
     if (!copied) return;
     const t = setTimeout(() => setCopied(false), 1600);
     return () => clearTimeout(t);
   }, [copied]);
-
-  if (!exported) return null;
 
   const empty = exported.items.length === 0;
   const prompt = buildPrompt(exported, request);

@@ -113,6 +113,11 @@ function Scene() {
     else objects.current.delete(uid);
   }, []);
 
+  // Read during render on purpose. `objects` is a live three.js registry, not
+  // render data: it's only ever *used* inside the gizmo's event handlers below,
+  // which run long after this. Mirroring it into state would re-render React on
+  // every frame of a drag — the exact thing the ref exists to avoid.
+  // eslint-disable-next-line react-hooks/refs
   const selectedObject = selected ? objects.current.get(selected) ?? null : null;
 
   /**
@@ -348,6 +353,8 @@ function Scene() {
 
       {E2E && (
         <SceneProbe
+          // Test-only probe; it reads the registry in an effect, after mount.
+          // eslint-disable-next-line react-hooks/refs
           objects={objects.current}
           ids={new Map(placed.map((p) => [p.uid, p.itemId]))}
         />

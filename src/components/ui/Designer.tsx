@@ -196,7 +196,8 @@ function useKeyboardShortcuts() {
 
       if ((e.ctrlKey || e.metaKey) && k === 'z') {
         e.preventDefault();
-        e.shiftKey ? s.redo() : s.undo();
+        if (e.shiftKey) s.redo();
+        else s.undo();
         return;
       }
       if ((e.ctrlKey || e.metaKey) && k === 'y') {
