@@ -80,7 +80,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Checkout failed.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Stripe errors quote the API key and other internals, so they stay in the
+    // server log. The client only ever sees a generic failure.
+    console.error('[checkout] session create failed:', err);
+    return NextResponse.json(
+      { error: 'Could not start checkout. Please try again.' },
+      { status: 500 },
+    );
   }
 }
