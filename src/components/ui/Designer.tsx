@@ -27,9 +27,9 @@ export function Designer() {
   const say = useWorkspace((s) => s.say);
   const months = useWorkspace((s) => s.months);
 
-  // mobile only: both collapsed so the canvas owns the screen. lg ignores these.
-  const [catalogOpen, setCatalogOpen] = useState(false);
-  const [summaryOpen, setSummaryOpen] = useState(false);
+  // mobile only: one panel at a time, or the canvas is squeezed to nothing. lg ignores this.
+  const [panel, setPanel] = useState<'catalog' | 'summary' | null>(null);
+  const toggle = (p: 'catalog' | 'summary') => setPanel((cur) => (cur === p ? null : p));
 
   const monthly = quote(selectedIds(placed), months).monthly;
 
@@ -60,8 +60,8 @@ export function Designer() {
         </header>
 
         <PanelToggle
-          open={catalogOpen}
-          onClick={() => setCatalogOpen((v) => !v)}
+          open={panel === 'catalog'}
+          onClick={() => toggle('catalog')}
           controls="catalog-body"
           label="Catalog"
           hint={`${placed.length} placed`}
@@ -69,8 +69,8 @@ export function Designer() {
 
         <div
           id="catalog-body"
-          className={`min-h-0 lg:flex-1 lg:max-h-none ${
-            catalogOpen ? 'max-h-[45dvh] flex-1' : 'max-h-0 overflow-hidden lg:max-h-none'
+          className={`min-h-0 lg:max-h-none lg:flex-1 ${
+            panel === 'catalog' ? 'max-h-[45dvh] flex-1' : 'max-h-0 overflow-hidden lg:max-h-none'
           }`}
         >
           <SlotPicker />
@@ -78,7 +78,8 @@ export function Designer() {
       </aside>
 
       {/* stage */}
-      <section className="relative order-1 min-h-0 flex-1 lg:order-2 z-1">
+      {/* min-w-0 + overflow-hidden: R3F measures this box, so it must be able to shrink */}
+      <section className="relative order-1 z-1 min-h-0 min-w-0 flex-1 overflow-hidden lg:order-2">
         <WorkspaceCanvas />
 
         <div className="pointer-events-none absolute inset-x-0 top-0 flex max-w-full justify-center p-3">
@@ -129,8 +130,8 @@ export function Designer() {
         className="order-3 flex min-h-0 shrink-0 flex-col border-t border-stone-200 bg-white lg:h-full lg:w-[320px] lg:border-l lg:border-t-0"
       >
         <PanelToggle
-          open={summaryOpen}
-          onClick={() => setSummaryOpen((v) => !v)}
+          open={panel === 'summary'}
+          onClick={() => toggle('summary')}
           controls="summary-body"
           label="Your setup"
           hint={placed.length ? `${money(monthly)}/mo` : 'Empty'}
@@ -138,8 +139,8 @@ export function Designer() {
 
         <div
           id="summary-body"
-          className={`min-h-0 lg:flex-1 lg:max-h-none ${
-            summaryOpen ? 'max-h-[45dvh] flex-1' : 'max-h-0 overflow-hidden lg:max-h-none'
+          className={`min-h-0 lg:max-h-none lg:flex-1 ${
+            panel === 'summary' ? 'max-h-[45dvh] flex-1' : 'max-h-0 overflow-hidden lg:max-h-none'
           }`}
         >
           <SummaryPanel />
