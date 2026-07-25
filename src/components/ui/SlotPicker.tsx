@@ -23,7 +23,7 @@ export function SlotPicker() {
       <div
         role="tablist"
         aria-label="Item categories"
-        className="flex gap-1 overflow-x-auto border-b border-stone-200 px-3 pb-2"
+        className="flex min-w-0 gap-1 overflow-x-auto border-b border-stone-200 px-3 pb-2"
       >
         {SLOTS.map((s) => {
           const n = countIn(s.slot);
@@ -56,7 +56,7 @@ export function SlotPicker() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        <ul className="grid gap-2">
+        <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
           {items.map((item) => {
             const qty = qtyOf(item.id);
             const on = qty > 0;
@@ -65,7 +65,7 @@ export function SlotPicker() {
                 key={item.id}
                 className={`rounded-xl border transition ${
                   on
-                    ? 'border-stone-900 bg-stone-900/[0.04] ring-1 ring-stone-900'
+                    ? 'border-stone-900 bg-stone-900/[0.04] ring-1 ring-inset ring-stone-900'
                     : 'border-stone-200 hover:border-stone-400 hover:bg-stone-50'
                 }`}
               >

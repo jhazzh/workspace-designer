@@ -37,8 +37,13 @@ export function SummaryPanel() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+        <h2 className="flex items-baseline justify-between text-xs font-semibold uppercase tracking-wide text-stone-500">
           Your setup
+          {!empty && (
+            <span className="tabular-nums font-medium normal-case tracking-normal text-stone-400">
+              {placed.length} {placed.length === 1 ? 'item' : 'items'}
+            </span>
+          )}
         </h2>
 
         {empty ? (
@@ -119,6 +124,11 @@ export function SummaryPanel() {
 
       <div className="border-t border-stone-200 bg-stone-50 px-4 py-3">
         <dl className="space-y-1 text-sm">
+          <Row
+            label="Items"
+            value={`${placed.length}`}
+            muted={empty}
+          />
           <Row label="Monthly rate" value={money(q.monthly)} muted={empty} />
           <Row label="Refundable deposit" value={money(q.deposit)} muted={empty} />
           <div className="flex items-baseline justify-between border-t border-stone-200 pt-2 text-base font-semibold text-stone-900">

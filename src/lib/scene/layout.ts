@@ -199,7 +199,41 @@ export function buildPrompt(data: LayoutFile, request: string) {
       )
       .join(' ');
 
-  return `Edit this 3D room layout JSON.
+  // Worked example, derived from the catalog so the numbers stay true: the
+  // widest tabletop item next to the narrowest is the case the model gets wrong.
+  const tops = CATALOG.filter((i) => i.placement === 'tabletop');
+  const wide = tops.reduce((a, b) => (b.size[0] > a.size[0] ? b : a), tops[0]);
+  const thin = tops.reduce((a, b) => (b.size[0] < a.size[0] ? b : a), tops[0]);
+  const example =
+    wide && thin && wide !== thin
+      ? `A ${wide.id} ${wide.size[0]} wide centred at x=0 already fills ${r3(-wide.size[0] / 2)}..${r3(wide.size[0] / 2)}, so a ${thin.id} beside it must be centred past ${r3(wide.size[0] / 2 + 0.05 + thin.size[0] / 2)}.`
+      : '';
+
+  // A bare "don't swap items" gets ignored, and a total count doesn't catch a
+  // swap (15 in, 15 out, different mix). An explicit per-id tally gives the
+  // model something concrete to check its own output against.
+  const tally = new Map<string, number>();
+  for (const it of data.items) tally.set(it.itemId, (tally.get(it.itemId) ?? 0) + 1);
+  const manifest = [...tally].map(([id, n]) => `${id} x${n}`).join(', ');
+
+  // The request leads: it's the first thing a person pasting this checks, and
+  // the rules below only make sense once you know what's being asked for.
+  return `CHANGE: ${request.trim() || '<describe your change here>'}
+
+Edit the 3D room layout JSON at the end of this message to make that change.
+
+Move and rotate only. Change ONLY "position" and "rotationY" on the items that
+are already there. Do not add, delete, or substitute an item — swapping one id
+for another is the most common way this goes wrong, and it silently changes the
+customer's bill. If the change seems to need an item that isn't in the file,
+do not invent one: get as close as you can by rearranging what's there, and
+say so in one line AFTER the JSON.
+
+Your output must contain exactly these items, in these quantities:
+  ${manifest}
+
+Before you answer, tally the itemIds in your JSON and confirm they match that
+list id for id and count for count. If any line differs, fix it and re-check.
 
 Units: metres. position=[x,y,z] at footprint centre; y is the item's BASE.
 Floor y=0. Room ${ROOM_SIZE}x${ROOM_SIZE} (x,z from -${half} to ${half}). -Z is far, +Z is near (viewer side).
@@ -220,15 +254,14 @@ TABLETOP items, y = the top of the desk they sit on: ${list('tabletop')}
 Overlap is the most common mistake. Two items at the same height clash when
 their x ranges AND their z ranges both overlap. An item at x spans
 x-w/2 .. x+w/2, and at z spans z-d/2 .. z+d/2. Check every pair, and leave
->=0.05 between them. A monitor 0.62 wide centred at x=0 already fills
--0.31..0.31, so a lamp beside it must be centred past 0.36.
+>=0.05 between them. ${example}
 Every tabletop item must also sit fully within its desk's footprint.
 Give desks >=0.1 clearance from each other and keep everything inside the room.
 Seat every chair at a desk edge, facing the desk, unless told otherwise.
 
-Return ONLY the full JSON, no prose, no code fences. Keep "version": 1.
-
-CHANGE: ${request.trim() || '<describe your change here>'}
+Return the full JSON first, with no code fences and nothing before it. Keep
+"version": 1. Any note about what you couldn't do goes after the JSON, not
+before it.
 
 ${JSON.stringify(data)}`;
 }

@@ -50,7 +50,7 @@ export function Designer() {
       {/* catalog */}
       <aside
         aria-label="Catalog"
-        className="order-2 flex min-h-0 shrink-0 flex-col border-t border-stone-200 bg-white lg:order-1 lg:h-full lg:w-[300px] lg:border-r lg:border-t-0 z-1"
+        className="order-2 flex min-h-0 shrink-0 flex-col border-t border-stone-200 bg-white lg:order-1 lg:h-full lg:w-[350px] lg:border-r lg:border-t-0 z-1"
       >
         <header className="hidden px-4 pb-2 pt-4 lg:block">
           <h1 className="text-[15px] font-semibold">Workspace Designer</h1>
@@ -71,7 +71,7 @@ export function Designer() {
             leaves it focusable and hit-testable. Desktop is never collapsed. */}
         <div
           id="catalog-body"
-          className={`min-h-0 flex-1 lg:block lg:max-h-none ${
+          className={`min-h-0 min-w-0 flex-1 lg:block lg:max-h-none ${
             panel === 'catalog' ? 'max-h-[45dvh]' : 'hidden'
           }`}
         >
@@ -141,7 +141,7 @@ export function Designer() {
 
         <div
           id="summary-body"
-          className={`min-h-0 flex-1 lg:block lg:max-h-none ${
+          className={`min-h-0 min-w-0 flex-1 lg:block lg:max-h-none ${
             panel === 'summary' ? 'max-h-[45dvh]' : 'hidden'
           }`}
         >
