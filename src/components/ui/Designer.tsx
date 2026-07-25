@@ -7,6 +7,7 @@ import { useWorkspace } from '@/store/useWorkspace';
 import { SlotPicker } from './SlotPicker';
 import { SummaryPanel } from './SummaryPanel';
 import { SceneToolbar } from './SceneToolbar';
+import { LayoutDialog } from './LayoutDialog';
 
 // three.js touches `window` at module scope, so it must never run on the server
 const WorkspaceCanvas = dynamic(() => import('@/components/scene/WorkspaceCanvas'), {
@@ -66,7 +67,7 @@ export function Designer() {
           <div className="pointer-events-none absolute inset-0 grid place-content-center px-6 text-center">
             <p className="text-lg font-medium text-stone-500">Your room is empty</p>
             <p className="mt-1 text-sm text-stone-400">
-              Pick a desk to get started. Drag to orbit, scroll to zoom.
+              Pick a desk to get started. Drag to orbit, shift-drag to pan, scroll to zoom.
             </p>
           </div>
         )}
@@ -77,12 +78,21 @@ export function Designer() {
           </div>
         )}
 
-        {selectedName && (
+        {selectedName ? (
           <div className="pointer-events-none absolute bottom-4 left-4 hidden rounded-lg bg-white/85 px-2.5 py-1.5 text-[12px] text-stone-600 shadow backdrop-blur lg:block">
             <b className="font-medium text-stone-900">{selectedName}</b> selected · drag
             the handles · <kbd className="font-sans">Del</kbd> to remove
           </div>
+        ) : (
+          placed.length > 0 && (
+            <div className="pointer-events-none absolute bottom-4 left-4 hidden rounded-lg bg-white/85 px-2.5 py-1.5 text-[12px] text-stone-600 shadow backdrop-blur lg:block">
+              drag to orbit · <kbd className="font-sans">Shift</kbd>-drag to pan · scroll to
+              zoom
+            </div>
+          )
         )}
+
+        <LayoutDialog />
 
         {/* screen-reader narration for canvas-only changes */}
         <p aria-live="polite" className="sr-only">
@@ -126,7 +136,6 @@ function useKeyboardShortcuts() {
 
       if (k === 'w') s.setMode('translate');
       else if (k === 'e') s.setMode('rotate');
-      else if (k === 'r') s.setMode('scale');
       else if (k === 'x') s.setSnap(!s.snap);
       else if (k === 'c') s.setCollide(!s.collide);
       else if (k === 'a') s.requestArrange();

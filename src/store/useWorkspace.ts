@@ -2,11 +2,12 @@
 
 import { create } from 'zustand';
 import { byId, type Slot } from '@/data/catalog';
+import type { LayoutFile } from '@/lib/scene/layout';
 
 /** One item instance in the scene. Duplicates get distinct uids. */
 export type Placed = { uid: string; itemId: string };
 
-export type TransformMode = 'translate' | 'rotate' | 'scale';
+export type TransformMode = 'translate' | 'rotate';
 export type RoomMode = 'open' | 'walls';
 
 /** A reversible action. Ported from the prototype's command stack. */
@@ -28,20 +29,46 @@ type State = {
   redoStack: Command[];
   /** Bumped to ask the scene to re-run auto-arrange. */
   arrangeToken: number;
+  /** Bumped to ask the scene to serialise itself into `exported`. */
+  exportToken: number;
+  /** Result of the last export, shown in the export dialog. Null = closed. */
+  exported: LayoutFile | null;
+  /**
+   * Placements waiting to be applied to the scene, keyed by uid. Set by an
+   * import; the scene consumes it once the meshes for those uids exist.
+   */
+  pendingLayout: Map<string, { position: [number, number, number]; rotationY: number }> | null;
+  /**
+   * An imported room shell (GLB), or null for the built-in room. Scenery only:
+   * it replaces the floor and walls visually, while furniture keeps colliding
+   * against the fixed room bounds. Held as a blob URL for the session, so it
+   * doesn't survive a reload.
+   */
+  roomModel: { url: string; name: string } | null;
   toast: string | null;
 
   select: (uid: string | null) => void;
   setSlot: (slot: Slot, itemId: string | null) => void;
   toggle: (itemId: string) => void;
+  addOne: (itemId: string) => void;
+  removeOne: (itemId: string) => void;
   remove: (uid: string) => void;
   duplicate: (uid: string) => void;
   clear: () => void;
   setMonths: (m: number) => void;
   setRoomMode: (r: RoomMode) => void;
+  /** Swap in an imported room shell, or pass null to restore the built-in one. */
+  setRoomModel: (m: { url: string; name: string } | null) => void;
   setMode: (m: TransformMode) => void;
   setSnap: (b: boolean) => void;
   setCollide: (b: boolean) => void;
   requestArrange: () => void;
+  requestExport: () => void;
+  setExported: (f: LayoutFile | null) => void;
+  /** Load an already-parsed layout and report what was skipped. */
+  applyImport: (file: LayoutFile, skipped: string[]) => void;
+  loadLayout: (file: LayoutFile) => void;
+  consumeLayout: () => void;
   say: (msg: string | null) => void;
   push: (c: Command) => void;
   undo: () => void;
@@ -59,6 +86,10 @@ export const useWorkspace = create<State>((set, get) => ({
   undoStack: [],
   redoStack: [],
   arrangeToken: 0,
+  exportToken: 0,
+  exported: null,
+  pendingLayout: null,
+  roomModel: null,
   toast: null,
 
   select: (uid) => set({ selected: uid }),
@@ -88,6 +119,32 @@ export const useWorkspace = create<State>((set, get) => ({
     set({ placed: after, selected: has ? null : after.at(-1)!.uid });
     get().push({
       label: `${has ? 'remove' : 'add'} ${name}`,
+      undo: () => set({ placed: before, selected: null }),
+      redo: () => set({ placed: after, selected: null }),
+    });
+  },
+
+  /** Quantity stepper: one more of this item, leaving existing ones alone. */
+  addOne: (itemId) => {
+    const before = get().placed;
+    const after = [...before, { uid: uid(), itemId }];
+    set({ placed: after, selected: after.at(-1)!.uid });
+    get().push({
+      label: `add ${byId(itemId)?.name ?? itemId}`,
+      undo: () => set({ placed: before, selected: null }),
+      redo: () => set({ placed: after, selected: null }),
+    });
+  },
+
+  /** Drop the most recently added of this item, keeping the rest. */
+  removeOne: (itemId) => {
+    const before = get().placed;
+    const last = before.map((p) => p.itemId).lastIndexOf(itemId);
+    if (last === -1) return;
+    const after = before.filter((_, i) => i !== last);
+    set({ placed: after, selected: null });
+    get().push({
+      label: `remove ${byId(itemId)?.name ?? itemId}`,
       undo: () => set({ placed: before, selected: null }),
       redo: () => set({ placed: after, selected: null }),
     });
@@ -132,10 +189,83 @@ export const useWorkspace = create<State>((set, get) => ({
 
   setMonths: (m) => set({ months: m }),
   setRoomMode: (roomMode) => set({ roomMode }),
+
+  setRoomModel: (roomModel) => {
+    // The outgoing blob URL pins its file in memory until it's released.
+    const old = get().roomModel;
+    if (old && old.url !== roomModel?.url) URL.revokeObjectURL(old.url);
+    set({ roomModel });
+  },
   setMode: (mode) => set({ mode }),
   setSnap: (snap) => set({ snap }),
   setCollide: (collide) => set({ collide }),
   requestArrange: () => set((s) => ({ arrangeToken: s.arrangeToken + 1 })),
+  requestExport: () => set((s) => ({ exportToken: s.exportToken + 1 })),
+  setExported: (exported) => set({ exported }),
+
+  /**
+   * Shared by both import routes (file picker and paste box) so a pasted
+   * layout and an uploaded one report success identically. Parsing stays in
+   * the caller: importing parseLayout here would make the store <-> layout
+   * type cycle a runtime one.
+   */
+  applyImport: (file, skipped) => {
+    get().loadLayout(file);
+    const n = file.items.length;
+    get().say(
+      skipped.length
+        ? `Loaded ${n} item${n === 1 ? '' : 's'} — skipped unknown: ${skipped.join(', ')}`
+        : `Loaded ${n} item${n === 1 ? '' : 's'}`,
+    );
+  },
+
+  /**
+   * Replace the scene with an imported layout. Items are created here; their
+   * positions ride along in pendingLayout for the scene to apply on mount,
+   * since transforms live on the three.js objects rather than in the store.
+   */
+  loadLayout: (file) => {
+    const before = get().placed;
+    const beforeRoom = get().roomMode;
+    const beforeMonths = get().months;
+
+    const after: Placed[] = [];
+    const pending = new Map<string, { position: [number, number, number]; rotationY: number }>();
+    for (const it of file.items) {
+      const id = uid();
+      after.push({ uid: id, itemId: it.itemId });
+      pending.set(id, { position: it.position, rotationY: it.rotationY });
+    }
+
+    set({
+      placed: after,
+      selected: null,
+      roomMode: file.room,
+      months: file.months,
+      pendingLayout: pending,
+    });
+    get().push({
+      label: 'import layout',
+      undo: () =>
+        set({
+          placed: before,
+          selected: null,
+          roomMode: beforeRoom,
+          months: beforeMonths,
+          pendingLayout: null,
+        }),
+      redo: () =>
+        set({
+          placed: after,
+          selected: null,
+          roomMode: file.room,
+          months: file.months,
+          pendingLayout: new Map(pending),
+        }),
+    });
+  },
+
+  consumeLayout: () => set({ pendingLayout: null }),
   say: (toast) => set({ toast }),
 
   push: (c) =>

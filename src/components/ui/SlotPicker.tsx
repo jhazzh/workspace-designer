@@ -9,11 +9,12 @@ export function SlotPicker() {
   const [tab, setTab] = useState<Slot>('desk');
   const placed = useWorkspace((s) => s.placed);
   const setSlot = useWorkspace((s) => s.setSlot);
-  const toggle = useWorkspace((s) => s.toggle);
+  const addOne = useWorkspace((s) => s.addOne);
+  const removeOne = useWorkspace((s) => s.removeOne);
 
   const meta = SLOTS.find((s) => s.slot === tab)!;
   const items = bySlot(tab);
-  const chosen = new Set(placed.map((p) => p.itemId));
+  const qtyOf = (itemId: string) => placed.filter((p) => p.itemId === itemId).length;
   const countIn = (slot: Slot) =>
     placed.filter((p) => byId(p.itemId)?.slot === slot).length;
 
@@ -57,21 +58,24 @@ export function SlotPicker() {
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         <ul className="grid gap-2">
           {items.map((item) => {
-            const on = chosen.has(item.id);
+            const qty = qtyOf(item.id);
+            const on = qty > 0;
             return (
-              <li key={item.id}>
+              <li
+                key={item.id}
+                className={`rounded-xl border transition ${
+                  on
+                    ? 'border-stone-900 bg-stone-900/[0.04] ring-1 ring-stone-900'
+                    : 'border-stone-200 hover:border-stone-400 hover:bg-stone-50'
+                }`}
+              >
                 <button
                   onClick={() =>
-                    meta.multi
-                      ? toggle(item.id)
-                      : setSlot(tab, on ? null : item.id)
+                    meta.multi ? addOne(item.id) : setSlot(tab, on ? null : item.id)
                   }
-                  aria-pressed={on}
-                  className={`w-full rounded-xl border p-3 text-left transition ${
-                    on
-                      ? 'border-stone-900 bg-stone-900/[0.04] ring-1 ring-stone-900'
-                      : 'border-stone-200 hover:border-stone-400 hover:bg-stone-50'
-                  }`}
+                  aria-label={meta.multi ? `Add ${item.name}` : item.name}
+                  aria-pressed={meta.multi ? undefined : on}
+                  className="w-full rounded-xl p-3 text-left"
                 >
                   <div className="flex items-start gap-3">
                     <span
@@ -95,6 +99,26 @@ export function SlotPicker() {
                     </span>
                   </div>
                 </button>
+
+                {meta.multi && on && (
+                  <div className="flex items-center justify-end gap-1 border-t border-stone-900/10 px-3 py-1.5">
+                    <Step
+                      label={`Remove one ${item.name}`}
+                      onClick={() => removeOne(item.id)}
+                    >
+                      −
+                    </Step>
+                    <span
+                      aria-live="polite"
+                      className="min-w-8 text-center text-sm font-medium tabular-nums text-stone-900"
+                    >
+                      {qty}
+                    </span>
+                    <Step label={`Add one ${item.name}`} onClick={() => addOne(item.id)}>
+                      +
+                    </Step>
+                  </div>
+                )}
               </li>
             );
           })}
@@ -102,10 +126,31 @@ export function SlotPicker() {
 
         <p className="mt-3 px-1 text-[12px] leading-relaxed text-stone-400">
           {meta.multi
-            ? 'Add as many as you like. Click again to remove.'
+            ? 'Click to add. Use − and + to change how many.'
             : 'Pick one. Choosing another swaps it out.'}
         </p>
       </div>
     </div>
+  );
+}
+
+/** Square −/+ control in an item's quantity stepper. */
+function Step({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      className="grid h-7 w-7 place-content-center rounded-md border border-stone-300 bg-white text-base leading-none text-stone-700 transition hover:border-stone-500 hover:text-stone-900"
+    >
+      {children}
+    </button>
   );
 }

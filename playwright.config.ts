@@ -5,7 +5,11 @@ const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  // Every test holds a live WebGL context. Running them concurrently starves
+  // the GPU and produces timeouts unrelated to what's being tested, so these
+  // run one at a time — slower, but the results mean something.
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',

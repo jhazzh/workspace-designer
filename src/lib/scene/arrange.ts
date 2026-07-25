@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Item, Placement } from '@/data/catalog';
 import { resolveCollisions, staticBoxes, worldBox } from './collision';
+import { clampToRoom } from './room';
 
 export type Placeable = { uid: string; item: Item; object: THREE.Object3D };
 
@@ -14,7 +15,18 @@ type Measured = Placeable & {
 const MARGIN = 0.025;
 const GAP = 0.06;
 
+/**
+ * Live boxes are unreliable while an item is still springing in: the box reads
+ * ~18% small, and every height derived from it — a desk's surface most of all —
+ * comes out too low, which is what dropped monitors below the desktop. Snapping
+ * to full size first costs one frame of animation and makes layout exact.
+ */
 function measure(p: Placeable): Measured {
+  const s = p.object.scale;
+  if (s.x !== 1 || s.y !== 1 || s.z !== 1) {
+    s.setScalar(1);
+    p.object.updateMatrixWorld(true);
+  }
   const box = worldBox(p.object);
   const size = box.getSize(new THREE.Vector3());
   return {
@@ -79,10 +91,14 @@ export function autoArrange(items: Placeable[], pinned?: ReadonlySet<string>) {
   if (anchor) {
     // only reposition the anchor if it isn't pinned
     if (!pinnedAnchor) place(anchor, 0, 0, 0);
-    const c = worldBox(anchor.object).getCenter(new THREE.Vector3());
+    // Re-read after the move: the box captured in measure() is now stale, and
+    // tabletop items are stacked on the desk's real top, not its height — a
+    // pinned desk is never re-seated to y=0, so the two aren't the same.
+    const box = worldBox(anchor.object);
+    const c = box.getCenter(new THREE.Vector3());
     originX = c.x;
     originZ = c.z;
-    surfaceY = anchor.size.y;
+    surfaceY = box.max.y;
     deskWidth = anchor.size.x;
     deskDepth = anchor.size.z;
   }
@@ -130,7 +146,18 @@ export function autoArrange(items: Placeable[], pinned?: ReadonlySet<string>) {
   // The chair belongs at the near edge facing the desk, not off to one side.
   const chair = standing.find((i) => i.item.slot === 'chair');
   const rest = standing.filter((i) => i !== chair);
-  if (chair) at(chair, 0, deskDepth / 2 + chair.size.z / 2 + 0.12, 0);
+  if (chair) {
+    // Reset rotation first: it swaps the footprint, so the box and size must
+    // both be re-read afterwards or the chair is placed from stale numbers
+    // and sinks through the floor.
+    // Sits at +Z of the desk, so it must look back toward -Z.
+    chair.object.rotation.y = Math.PI;
+    chair.object.updateMatrixWorld(true);
+    const box = worldBox(chair.object);
+    chair.box = box;
+    chair.size = box.getSize(new THREE.Vector3());
+    at(chair, 0, deskDepth / 2 + chair.size.z / 2 + 0.12, 0);
+  }
 
   rest.forEach((i, n) => {
     const side = n % 2 ? 1 : -1;
@@ -147,8 +174,20 @@ export function autoArrange(items: Placeable[], pinned?: ReadonlySet<string>) {
     .filter((i) => !rugs.some((r) => r.object === i.object))
     .map((i) => i.object);
 
+  // Desks count as their top slab only, so storage can sit in the legroom.
+  const deskObjects = new Set(info.filter((i) => i.kind === 'support').map((i) => i.object));
+
   for (const i of info) {
     if (rugs.includes(i) || i === anchor) continue;
-    resolveCollisions(i.object, [...staticBoxes(solid, i.object), ...fixedBoxes], 6);
+    resolveCollisions(i.object, [...staticBoxes(solid, i.object, deskObjects), ...fixedBoxes], 6);
   }
+
+  // Nothing may end up under the floor, whatever the rules above worked out.
+  for (const i of info) {
+    const min = worldBox(i.object).min.y;
+    if (min < 0) i.object.position.y -= min;
+  }
+
+  // Keep the finished layout inside the room.
+  for (const i of info) clampToRoom(i.object);
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Clone, useGLTF } from '@react-three/drei';
@@ -17,7 +17,9 @@ function Model({ url }: { url: string }) {
   const { scene } = useGLTF(url);
   const ref = useRef<THREE.Group>(null);
 
-  useEffect(() => {
+  // Layout effect: recentre before the parent's arrange effect reads the box,
+  // so a fresh GLB is measured at its true footprint, not the origin-centred mesh.
+  useLayoutEffect(() => {
     const g = ref.current;
     if (!g) return;
     g.traverse((o) => {
@@ -42,9 +44,11 @@ type Props = {
   selected: boolean;
   onSelect: (uid: string) => void;
   register: (uid: string, object: THREE.Object3D | null) => void;
+  /** Imported items carry their own y (e.g. on a desk); don't drop them. */
+  placed?: boolean;
 };
 
-export function ItemMesh({ item, uid, selected, onSelect, register }: Props) {
+export function ItemMesh({ item, uid, selected, onSelect, register, placed }: Props) {
   const group = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const grown = useRef(0);
@@ -54,10 +58,16 @@ export function ItemMesh({ item, uid, selected, onSelect, register }: Props) {
     return () => register(uid, null);
   }, [uid, register]);
 
-  // spring-in on add; runs outside React state so it costs no re-renders
+  // Spring-in on add; runs outside React state so it costs no re-renders.
+  // The arranger snaps an item to scale 1 when it needs an exact box, so treat
+  // that as the animation being over rather than shrinking it again.
   useFrame((_, dt) => {
     const g = group.current;
     if (!g || grown.current >= 1) return;
+    if (g.scale.x === 1) {
+      grown.current = 1;
+      return;
+    }
     grown.current = Math.min(1, grown.current + dt * 3.2);
     const t = 1 - Math.pow(1 - grown.current, 3);
     const s = 0.82 + 0.18 * t;
@@ -65,8 +75,15 @@ export function ItemMesh({ item, uid, selected, onSelect, register }: Props) {
     if (grown.current >= 1) g.scale.setScalar(1);
   });
 
-  useEffect(() => {
-    if (group.current) seatOnFloor(group.current);
+  useLayoutEffect(() => {
+    // Tabletop items are seated by the arranger onto a real surface; dropping
+    // them to y=0 first makes a monitor flash on the floor before it jumps up.
+    if (group.current && !placed && item.placement !== 'tabletop') {
+      seatOnFloor(group.current);
+    }
+    // Read once on mount by design: seating is a first-frame decision, and
+    // re-running it later would yank a dragged item down.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -83,7 +100,16 @@ export function ItemMesh({ item, uid, selected, onSelect, register }: Props) {
       }}
       onPointerOut={() => setHovered(false)}
     >
-      {item.model ? <Model url={item.model} /> : <Placeholder item={item} />}
+      {item.model ? (
+        // Inner group absorbs the GLB's authored facing, so the outer group's
+        // rotation.y is always "0 = faces +Z". Placeholders are already built
+        // that way, so they don't get the offset.
+        <group rotation={[0, item.modelYaw ?? 0, 0]}>
+          <Model url={item.model} />
+        </group>
+      ) : (
+        <Placeholder item={item} />
+      )}
 
       {(selected || hovered) && <SelectionRing item={item} strong={selected} />}
     </group>

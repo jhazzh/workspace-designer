@@ -17,11 +17,17 @@ export type Item = {
   model?: string;
   /** Tall tabletop items go at the back of the desk. */
   back?: boolean;
+  /**
+   * Extra yaw (radians) baked into the model so that rotationY=0 always means
+   * "faces +Z". Chair models are authored facing -Z, so they need PI here.
+   * Applied inside ItemMesh; rotationY itself stays the single convention.
+   */
+  modelYaw?: number;
 };
 
 export const SLOTS: { slot: Slot; label: string; multi: boolean }[] = [
-  { slot: 'desk', label: 'Desk', multi: false },
-  { slot: 'chair', label: 'Chair', multi: false },
+  { slot: 'desk', label: 'Desks', multi: true },
+  { slot: 'chair', label: 'Chairs', multi: true },
   { slot: 'monitor', label: 'Monitors', multi: true },
   { slot: 'lamp', label: 'Lighting', multi: true },
   { slot: 'plant', label: 'Plants', multi: true },
@@ -72,6 +78,7 @@ export const CATALOG: Item[] = [
     blurb: 'Lumbar support for long days.',
     size: [0.65, 1.15, 0.65],
     color: '#3b4048',
+    modelYaw: Math.PI,
   },
   {
     id: 'chair-lounge',
@@ -82,6 +89,7 @@ export const CATALOG: Item[] = [
     blurb: 'Woven rattan. Reading-friendly.',
     size: [0.7, 0.95, 0.7],
     color: '#c79a62',
+    modelYaw: Math.PI,
   },
   {
     id: 'chair-stool',

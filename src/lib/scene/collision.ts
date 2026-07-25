@@ -4,12 +4,34 @@ const EPS = 0.0015;
 
 export const worldBox = (o: THREE.Object3D) => new THREE.Box3().setFromObject(o);
 
+/** How much of a desk is really solid, measured down from its top. */
+const TOP_SLAB = 0.12;
+
+/**
+ * A desk's bounding box is a sealed block from the floor to its top, so the
+ * legroom under it reads as solid and a drawer can never tuck beneath. Treating
+ * a support item as just its top slab restores that space, which is the whole
+ * point of an under-desk unit.
+ */
+export function collisionBox(o: THREE.Object3D, isSupport: boolean) {
+  const box = worldBox(o);
+  if (isSupport) box.min.y = Math.max(box.min.y, box.max.y - TOP_SLAB);
+  return box;
+}
+
 /**
  * Boxes of everything except the object being dragged, cached once at drag
  * start so we aren't rebuilding them 60 times a second.
+ *
+ * `supports` marks the objects to hollow out (desks); without it every box is
+ * solid, which is the right default for walls and ordinary furniture.
  */
-export function staticBoxes(all: THREE.Object3D[], exclude?: THREE.Object3D | null) {
-  return all.filter((o) => o !== exclude).map(worldBox);
+export function staticBoxes(
+  all: THREE.Object3D[],
+  exclude?: THREE.Object3D | null,
+  supports?: Set<THREE.Object3D>,
+) {
+  return all.filter((o) => o !== exclude).map((o) => collisionBox(o, supports?.has(o) ?? false));
 }
 
 /**
@@ -46,6 +68,10 @@ export function resolveCollisions(
       const oy = Math.min(box.max.y, other.max.y) - Math.max(box.min.y, other.min.y);
       const oz = Math.min(box.max.z, other.max.z) - Math.max(box.min.z, other.min.z);
       const depth = Math.min(ox, oy, oz);
+      // Resting contact, not penetration: a monitor sitting exactly on a desk
+      // shares a face, which Box3 counts as intersecting. Nudging it would walk
+      // a correctly-placed item off its surface.
+      if (depth <= EPS) continue;
       if (!worst || depth > worst.depth) worst = { ox, oy, oz, depth, other };
     }
     if (!worst) break;
@@ -87,4 +113,27 @@ export function findFreeSpot(target: THREE.Object3D, others: THREE.Box3[]) {
     target.position.x = Math.cos(a) * step * (1 + ring * 0.35);
     target.position.z = Math.sin(a) * step * (1 + ring * 0.35);
   }
+}
+
+/**
+ * Drop `target` straight down onto whatever is directly beneath it — the top of
+ * an overlapping surface, else the floor. Called when the user releases an
+ * object over a table so it rests on the surface instead of hovering.
+ *
+ * Only considers surfaces whose footprint overlaps the target in x/z, so an
+ * item held off to the side still lands on the floor.
+ */
+export function settleOnSurface(target: THREE.Object3D, others: THREE.Box3[]) {
+  const box = worldBox(target);
+  const overlapsXZ = (o: THREE.Box3) =>
+    box.min.x < o.max.x && box.max.x > o.min.x && box.min.z < o.max.z && box.max.z > o.min.z;
+
+  // highest surface top that sits below the object's current top
+  let restY = 0; // floor
+  for (const o of others) {
+    if (!overlapsXZ(o)) continue;
+    if (o.max.y <= box.max.y + 0.001 && o.max.y > restY) restY = o.max.y;
+  }
+
+  target.position.y += restY - box.min.y;
 }
