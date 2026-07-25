@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { quote, toCents } from '@/lib/pricing';
+import { breakdown, quote, toCents } from '@/lib/pricing';
 
 export async function POST(request: Request) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -32,6 +32,19 @@ export async function POST(request: Request) {
   const origin = request.headers.get('origin') ?? new URL(request.url).origin;
   const stripe = new Stripe(key);
 
+  // Same record on both objects: the session is the checkout flow, the payment
+  // intent is what stays visible under Payments once the charge settles.
+  const metadata = {
+    items: ids.join(',').slice(0, 500),
+    line_items: breakdown(q.lines),
+    months: String(q.months),
+    subtotal: q.subtotal.toFixed(2),
+    discount: q.discount.toFixed(2),
+    monthly: q.monthly.toFixed(2),
+    deposit: q.deposit.toFixed(2),
+    due_today: q.dueToday.toFixed(2),
+  };
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -59,11 +72,8 @@ export async function POST(request: Request) {
           },
         },
       ],
-      metadata: {
-        items: ids.join(','),
-        months: String(q.months),
-        monthly: q.monthly.toFixed(2),
-      },
+      metadata,
+      payment_intent_data: { metadata },
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: origin,
     });
