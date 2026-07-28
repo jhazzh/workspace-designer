@@ -90,8 +90,10 @@ export function SummaryPanel() {
             })}
           </ul>
         )}
+      </div>
 
-        <div className="mt-5">
+      <div className="border-t border-stone-200 bg-stone-50 px-4 py-3">
+        <div>
           <label
             htmlFor="months"
             className="flex items-baseline justify-between text-sm"
@@ -120,9 +122,6 @@ export function SummaryPanel() {
             </p>
           )}
         </div>
-      </div>
-
-      <div className="border-t border-stone-200 bg-stone-50 px-4 py-3">
         <dl className="space-y-1 text-sm">
           <Row
             label="Items"
